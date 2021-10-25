@@ -63,10 +63,6 @@ go install github.com/cpuguy83/go-md2man@latest
 ```sh
 git clone https://github.com/cri-o/cri-o
 cd cri-o
-# until #4883 merges 
-git remote add sallyom https://github.com/sallyom/cri-o.git
-git fetch --all
-git checkout -b otel-trace sallyom/otel-trace-2
 make BUILDTAGS=""
 sudo make install
 cd ../
@@ -97,7 +93,7 @@ Turn on cri-o with tracing by adding a crio.conf.d file
 sudo su
 cat <<EOF > /etc/crio/crio.conf.d/otel.conf
 [crio.tracing]
-sampling_rate_per_million=999999
+tracing_sampling_rate_per_million=999999
 enable_tracing=true
 EOF
 
