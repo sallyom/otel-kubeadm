@@ -50,6 +50,9 @@ systemctl start kubelet
 kubeadm config images pull
 firewall-cmd --zone=public --permanent --add-port={6443,2379,2380,10250,10251,10252}/tcp
 firewall-cmd --reload
+
+# exit out of sudo env
+exit
 ```
 
-**Your system should be ready to run kubeadm now, return to [README](https://github.com/sallyom/otel-kubeadm/blob/main/README.md) to finish setup** 
+**Your system should be ready to launch kubeadm now, return to [README](https://github.com/sallyom/otel-kubeadm/blob/main/README.md#launch-kubeadm-cluster) to finish setup**
