@@ -99,7 +99,7 @@ cd ../otel-kubeadm
 
 2)
 ```shell
-oc edit configmap kubelet-config-1.23 -n kube-system
+oc edit configmap kubelet-config-1.24 -n kube-system
 # add the following 
 
     featureGates:
@@ -123,7 +123,8 @@ kubectl apply -f otel-sa-crb-cm-agent-collector-dep-ds-svc.yaml -n otel
     3. `kubectl delete pod/otel-agent-podname` to refresh with updated configmap
 
 ## Deploy Jaeger All-in-One
-*https://www.jaegertracing.io/docs/1.29.1/operator/#installing-the-operator-on-kubernetes*
+
+*https://www.jaegertracing.io/docs/1.36/operator/#installing-the-operator-on-kubernetes*
 
 #### Apply all components in Jaeger All-in-One according to Jaeger documentation.
 
@@ -133,7 +134,7 @@ deployed with community operator.
 
 ```shell
 kubectl create namespace observability
-kubectl apply -f https://github.com/jaegertracing/jaeger-operator/releases/download/v1.29.1/jaeger-operator.yaml -n observability
+kubectl apply -f https://github.com/jaegertracing/jaeger-operator/releases/download/v1.36.0/jaeger-operator.yaml -n observability
 ```
 
 #### Edit Jaeger operator deployment to watch all namespaces
