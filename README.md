@@ -117,6 +117,12 @@ kubectl apply -f otel-sa-crb-cm-agent-collector-dep-ds-svc.yaml -n otel
 
 *https://www.jaegertracing.io/docs/1.36/operator/#installing-the-operator-on-kubernetes*
 
+Jaeger operator requires [cert-manager](https://cert-manager.io/docs/installation/kubectl/#installing-with-regular-manifests) is running.
+
+```shell
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.8.2/cert-manager.yaml
+```
+
 #### Apply all components in Jaeger All-in-One according to Jaeger documentation.
 
 **Note:** Jaeger operator is available through [Operator Hub](https://operatorhub.io/)
