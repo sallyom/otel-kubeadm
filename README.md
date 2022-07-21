@@ -27,7 +27,7 @@ Kubelet, CRI-O traces
 ## Configure VM
 
 ### Install & configure CRI-O
-* [Configure CNI, install & start CRI-O](https://raw.githubusercontent.com/sallyom/otel-k8s-microshift/otel-kubeadm-tracing-setup/crio-centos-8.md)
+* [Configure CNI, install & start CRI-O](../crio-centos-8.md)
 
 ### Configure for kubeadm
 * [Configure system to run Kubeadm](https://github.com/sallyom/otel-kubeadm/blob/main/kubeadm-setup.md)
