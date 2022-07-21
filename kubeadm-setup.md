@@ -55,4 +55,4 @@ firewall-cmd --reload
 exit
 ```
 
-**Your system should be ready to launch kubeadm now, return to [README](https://github.com/sallyom/otel-kubeadm/blob/otel-kubeadm-tracing-setup/README.md#launch-kubeadm-cluster) to finish setup**
+**Your system should be ready to launch kubeadm now, return to [README](https://github.com/sallyom/otel-kubeadm/blob/main/README.md#launch-kubeadm-cluster) to finish setup**

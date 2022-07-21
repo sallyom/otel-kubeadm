@@ -8,17 +8,6 @@
 * OpenTelemetry-Collector to collect trace data from apiserver, etcd, kubelet & CRI-O
 * Jaeger all-in-one to visualize trace data
 
-#### Outcome
-
-APIServer, Etcd traces
-![APIServer & Etcd Traces](images/apiserver-etcd-trace-overview.png)
-
-APIServer, Etcd spans
-![APIServer, Etcd Spans](images/apiserver-etcd-trace.png)
-
-Kubelet, CRI-O traces
-![Kubelet, CRI-O Traces](images/kubelet-cri-o-trace-overview.png)
-
 #### VM Details
 
 * Centos8-Stream VM (gcp)
@@ -27,10 +16,10 @@ Kubelet, CRI-O traces
 ## Configure VM
 
 ### Install & configure CRI-O
-* [Configure CNI, install & start CRI-O](https://github.com/sallyom/otel-k8s-microshift/blob/otel-kubeadm-tracing-setup/crio-centos-8.md)
+* [Configure CNI, install & start CRI-O](https://github.com/sallyom/otel-k8s-microshift/blob/main/crio-centos-8.md)
 
 ### Configure for kubeadm
-* [Configure system to run Kubeadm](https://github.com/sallyom/otel-kubeadm/blob/otel-kubeadm-tracing-setup/kubeadm-setup.md)
+* [Configure system to run Kubeadm](https://github.com/sallyom/otel-kubeadm/blob/main/kubeadm-setup.md)
 
 
 ## Launch Kubeadm Cluster
@@ -40,30 +29,42 @@ Kubelet, CRI-O traces
 Trace configuration file will be volume mounted in APIserver pod
 
 ```shell
-# if the repository is not cloned yet
-git clone https://github.com/sallyom/otel-kubeadm.git
+mkdir /tmp/trace
+cat <<EOF > /tmp/trace/trace.yaml
+apiVersion: apiserver.config.k8s.io/v1alpha1
+kind: TracingConfiguration
+# 99% sampling rate
+samplingRatePerMillion: 999999
+EOF
+```
 
-mkdir /tmp/trace && cp trace.yaml /tmp/trace/trace.yaml
+#### Launch pod with embedded artifacts
+
+```shell
+# kubeadm-init needs to run as admin user, so drop into admin here
+# or, append 'sudo' to most cmds below
+sudo su 
+podman run --rm -d --name kubeadm-otel quay.io/sallyom/otel-ex:kubeadm-kubelet sleep 1000
 ```
 
 Now run kubeadm to launch K8s control plane. Notice the extra arguments
-configured for etcd and APIServer in [kubeadm-config.yaml](https://github.com/sallyom/otel-kubeadm/blob/otel-kubeadm-tracing-setup/kubeadm-config.yaml).
+configured for etcd and APIServer in [kubeadm-config.yaml](https://github.com/sallyom/otel-kubeadm/blob/main/build/kubeadm-config.yaml).
 
 ```shell
-sudo su
+podman cp kubeadm-otel:/opt/kubeadm-config.yaml .
 kubeadm init --config kubeadm-config.yaml
-exit
+exit # leave sudo for now
 ```
 
 Upon successful launch copy the admin config to $HOME
 
 ```shell
 mkdir $HOME/.kube
-sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-sudo chown $(id -u):$(id -g) $HOME/.kube/config
+cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+chown $(id -u):$(id -g) $HOME/.kube/config
 ```
 
-Make master node schedulable
+Make control-plane node schedulable
 
 ```shell
 kubectl taint nodes --all node-role.kubernetes.io/control-plane-
@@ -75,24 +76,18 @@ Because a version drift between `kubeadm` and `kubelet` will result in kubeadm e
 have to launch the kubeadm cluster first, _then_ replace kubelet with below commands.
 
 ```shell
-cd && git clone https://github.com/kubernetes/kubernetes && cd kubernetes
-git fetch https://github.com/sallyom/kubernetes tracing-kubelet
-git checkout FETCH_HEAD # git checkout -b sallyom-trace or stay in detached
-sudo dnf install -y rsync
-make kubelet
 sudo su
 systemctl stop kubelet
-cp _output/bin/kubelet /bin/
-```
-Modify cluster KubeletConfiguration and restart kubelet service
+podman cp kubeadm-otel:/opt/kubelet /bin/
 
-```shell
-cd ../otel-kubeadm # checkout of this repository
-cp kubelet-trace-config.yaml /var/lib/kubelet/config.yaml
+# Now modify cluster KubeletConfiguration and restart kubelet service
+
+podman cp kubeadm-otel:/opt/kubelet-trace-config.yaml /var/lib/kubelet/config.yaml
 systemctl daemon-reload && systemctl restart crio && systemctl restart kubelet
+podman stop kubeadm-otel
 exit # back to normal user mode
-cd ../otel-kubeadm
 ```
+
 The KubeletConfiguration now has the added feature-gate and tracing configuration shown below.
 
 ```shell
@@ -101,11 +96,15 @@ The KubeletConfiguration now has the added feature-gate and tracing configuratio
     tracing: {endpoint: "127.0.0.1:4317", samplingRatePerMillion: 999999}
 ```
 
-## Deploy OpenTelemetry-Agent,Collector, DaemonSet, Configmaps, Deployment, ClusterRoleBinding
+## Deploy OpenTelemetry Collector & Jaeger 
 
 ```shell
+# note non-root user here
+podman run --rm -d --name kubeadm-otel quay.io/sallyom/otel-ex:kubeadm-kubelet sleep 30
+podman cp kubeadm-otel:/opt/deploy-otel.yaml deploy-otel.yaml
+podman stop kubeadm-otel
 kubectl create ns otel
-kubectl apply -f otel-sa-crb-cm-agent-collector-dep-ds-svc.yaml -n otel
+kubectl apply -f deploy-otel.yaml -n otel
 ```
 
 * Configure `otel-agent-conf configmap` exporter data
@@ -160,9 +159,15 @@ When Jaeger custom resource is created, Jaeger operator triggers resource creati
 in the same namespace as the Jaeger CR.
 
 ```shell
-kubectl apply -f jaeger.yaml -n otel
+kubectl apply -f https://raw.githubusercontent.com/sallyom/otel-kubeadm/main/jaeger.yaml -n otel
 # wait for oteljaeger pod to be running, then forward 16686 of pod to localhost:16686 in VM
 kubectl port-forward <oteljaeger-pod> -n otel 16686:16686
+```
+
+*If running in a VM on your local machine, forward port 16686 to local system like so*
+
+```shell
+ssh -L 16686:localhost:16686 username@vm-ip
 ```
 
 *If running kubeadm in a gcp cluster, forward port 16686 to local system localhost like so*
@@ -181,8 +186,6 @@ gcloud compute ssh <machine-name> --zone=<zone> -- -L 9876:127.0.0.1:16686
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.3.1/aio/deploy/recommended.yaml
 kubectl proxy
 
-kubectl apply -f sa-admin.yaml -n otel
-kubectl apply -f clusterrolebinding-admin.yaml
 ```
 
 *If in gcp, forward :8001 to localhost of local system, otherwise, Kube UI @localhost:8001*
@@ -195,3 +198,16 @@ gcloud compute ssh <machine-name> --zone=<zone> -- -L 9888:127.0.0.1:8001
 Try this [k8s-hello-mutating-webhook example application](https://github.com/sallyom/k8s-hello-mutating-webhook)!
 Use the test-deployment in that example to scale up and down pods, to generate activity with
 etcd, CRI-O, and APIServer.
+
+#### Outcome
+
+APIServer, Etcd traces
+![APIServer & Etcd Traces](images/apiserver-etcd-trace-overview.png)
+
+APIServer, Etcd spans
+![APIServer, Etcd Spans](images/apiserver-etcd-trace.png)
+
+Kubelet, CRI-O traces
+![Kubelet, CRI-O Traces](images/kubelet-cri-o-trace-overview.png)
+
+
