@@ -85,10 +85,7 @@ systemctl stop kubelet
 cp _output/bin/kubelet /bin/
 ```
 Modify cluster KubeletConfiguration and restart kubelet service
-Here are 2 different ways of configuring KubeletConfiguration. I do both,
-but probably only need 1 or the other.
 
-1)
 ```shell
 cd ../otel-kubeadm # checkout of this repository
 cp kubelet-trace-config.yaml /var/lib/kubelet/config.yaml
@@ -96,18 +93,12 @@ systemctl daemon-reload && systemctl restart crio && systemctl restart kubelet
 exit # back to normal user mode
 cd ../otel-kubeadm
 ```
+The KubeletConfiguration now has the added feature-gate and tracing configuration shown below.
 
-2)
 ```shell
-oc edit configmap kubelet-config-1.24 -n kube-system
-# add the following 
-
     featureGates:
       KubeletTracing: true
     tracing: {endpoint: "127.0.0.1:4317", samplingRatePerMillion: 999999}
-
-# not sure this is required, but also I
-systemctl daemon-reload && systemctl restart crio && systemctl restart kubelet
 ```
 
 ## Deploy OpenTelemetry-Agent,Collector, DaemonSet, Configmaps, Deployment, ClusterRoleBinding
