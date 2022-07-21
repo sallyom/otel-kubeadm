@@ -66,7 +66,7 @@ sudo chown $(id -u):$(id -g) $HOME/.kube/config
 Make master node schedulable
 
 ```shell
-kubectl taint nodes --all node-role.kubernetes.io/master-
+kubectl taint nodes --all node-role.kubernetes.io/control-plane-
 ```
 
 ## Optional: Replace kubelet with locally built binary from trace PR in-progress
