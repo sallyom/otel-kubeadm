@@ -30,7 +30,7 @@ Kubelet, CRI-O traces
 * [Configure CNI, install & start CRI-O](https://github.com/sallyom/otel-k8s-microshift/blob/otel-kubeadm-tracing-setup/crio-centos-8.md)
 
 ### Configure for kubeadm
-* [Configure system to run Kubeadm](https://github.com/sallyom/otel-kubeadm/blob/main/kubeadm-setup.md)
+* [Configure system to run Kubeadm](https://github.com/sallyom/otel-kubeadm/blob/otel-kubeadm-tracing-setup/kubeadm-setup.md)
 
 
 ## Launch Kubeadm Cluster
@@ -47,7 +47,7 @@ mkdir /tmp/trace && cp trace.yaml /tmp/trace/trace.yaml
 ```
 
 Now run kubeadm to launch K8s control plane. Notice the extra arguments
-configured for etcd and APIServer in [kubeadm-config.yaml](https://github.com/sallyom/otel-kubeadm/blob/main/kubeadm-config.yaml).
+configured for etcd and APIServer in [kubeadm-config.yaml](https://github.com/sallyom/otel-kubeadm/blob/otel-kubeadm-tracing-setup/kubeadm-config.yaml).
 
 ```shell
 sudo su
