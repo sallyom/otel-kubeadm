@@ -23,9 +23,11 @@ apiServer:
     hostPath: /tmp/trace/
     mountPath: /var/lib/trace/
   extraArgs:
-    advertise-address: 0.0.0.0
-    feature-gates: "APIServerTracing=true"
     tracing-config-file: /var/lib/trace/trace.yaml
+    advertise-address: 0.0.0.0
+    feature-gates:
+      APIServerTracing: true
+      KubeletTracing: true
   timeoutForControlPlane: 4m0s
 apiVersion: kubeadm.k8s.io/v1beta3
 certificatesDir: /etc/kubernetes/pki

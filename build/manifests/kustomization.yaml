@@ -1,0 +1,11 @@
+commonLabels:
+  app: otel
+namespace: otel
+resources:
+- otel-ns.yaml
+- crb.yaml
+- daemonset.yaml
+- configmap.yaml
+- otel-col-deployment.yaml
+- otel-col-service.yaml
+- serviceacct.yaml

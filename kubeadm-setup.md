@@ -12,7 +12,7 @@ dnf -y upgrade
 dnf install -y iproute-tc
 swapoff -a
 setenforce 0
-sed -i --follow-symlinks 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/sysconfig/selinux
+sed -i --follow-symlinks 's/SELINUX=enforcing/SELINUX=permissive/g' /etc/sysconfig/selinux
 modprobe br_netfilter
 firewall-cmd --add-masquerade --permanent
 firewall-cmd --reload

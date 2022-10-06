@@ -3,20 +3,18 @@
 #### Goals
 
 * Configure machine to run a kubeadm cluster with CRI-O
-* Kubeadm cluster with apiserver, CRI-O, & etcd OpenTelemetry trace exports
-* (bonus) Replace kubelet with locally built binary from [Tracing PR](https://github.com/kubernetes/kubernetes/pull/105126)
+* Kubeadm cluster with apiserver, kubelet, CRI-O, & etcd OpenTelemetry trace exports
 * OpenTelemetry-Collector to collect trace data from apiserver, etcd, kubelet & CRI-O
 * Jaeger all-in-one to visualize trace data
 
-#### VM Details
+#### Machine Details
 
-* Centos8-Stream VM (gcp)
-* 8vCPUs,32 GB memory, 20GB disk - probably don't need all that
+Fedora 36
 
-## Configure VM
+## Configure Machine
 
 ### Install & configure CRI-O
-* [Configure CNI, install & start CRI-O](https://github.com/sallyom/otel-k8s-microshift/blob/main/crio-centos-8.md)
+* [Install & start CRI-O](https://github.com/sallyom/otel-k8s-microshift/blob/main/crio-fedora36.md)
 
 ### Configure for kubeadm
 * [Configure system to run Kubeadm](https://github.com/sallyom/otel-kubeadm/blob/main/kubeadm-setup.md)
@@ -38,29 +36,30 @@ samplingRatePerMillion: 999999
 EOF
 ```
 
-#### Launch pod with embedded artifacts
+#### Launch build-container with embedded artifacts from this repository
 
 ```shell
-# kubeadm-init needs to run as admin user, so drop into admin here
-# or, append 'sudo' to most cmds below
-sudo su 
-podman run --rm -d --name kubeadm-otel quay.io/sallyom/otel-ex:kubeadm-kubelet sleep 1000
+podman run --rm -d --name kubeadm-otel quay.io/sallyom/otel-ex:kubeadm sleep 1000
 ```
 
-Now run kubeadm to launch K8s control plane. Notice the extra arguments
-configured for etcd and APIServer in [kubeadm-config.yaml](https://github.com/sallyom/otel-kubeadm/blob/main/build/kubeadm-config.yaml).
-
+## Copy necessary files from build container
 ```shell
 podman cp kubeadm-otel:/opt/kubeadm-config.yaml .
-kubeadm init --config kubeadm-config.yaml
-exit # leave sudo for now
+podman cp kubeadm-otel:/opt/kubelet-trace-config.yaml .
+sudo cp kubelet-trace-config.yaml /var/lib/kubelet/config.yaml
+podman stop kubeadm-otel
+
+# kubeadm-init needs to run as admin user
+# TODO: configure kubeadm non-root
+
+sudo kubeadm init --config kubeadm-config.yaml
 ```
 
 Upon successful launch copy the admin config to $HOME
 
 ```shell
 mkdir $HOME/.kube
-cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 chown $(id -u):$(id -g) $HOME/.kube/config
 ```
 
@@ -70,41 +69,15 @@ Make control-plane node schedulable
 kubectl taint nodes --all node-role.kubernetes.io/control-plane-
 ```
 
-## Optional: Replace kubelet with locally built binary from trace PR in-progress
-
-Because a version drift between `kubeadm` and `kubelet` will result in kubeadm error,
-have to launch the kubeadm cluster first, _then_ replace kubelet with below commands.
-
-```shell
-sudo su
-systemctl stop kubelet
-podman cp kubeadm-otel:/opt/kubelet /bin/
-
-# Now modify cluster KubeletConfiguration and restart kubelet service
-
-podman cp kubeadm-otel:/opt/kubelet-trace-config.yaml /var/lib/kubelet/config.yaml
-systemctl daemon-reload && systemctl restart crio && systemctl restart kubelet
-podman stop kubeadm-otel
-exit # back to normal user mode
-```
-
-The KubeletConfiguration now has the added feature-gate and tracing configuration shown below.
-
-```shell
-    featureGates:
-      KubeletTracing: true
-    tracing: {endpoint: "127.0.0.1:4317", samplingRatePerMillion: 999999}
-```
-
 ## Deploy OpenTelemetry Collector & Jaeger 
 
 ```shell
-# note non-root user here
-podman run --rm -d --name kubeadm-otel quay.io/sallyom/otel-ex:kubeadm-kubelet sleep 30
-podman cp kubeadm-otel:/opt/deploy-otel.yaml deploy-otel.yaml
+mkdir manifests
+podman run --rm -d -v manifests:/opt/manifests:Z --name kubeadm-otel quay.io/sallyom/otel-ex:kubeadm
+podman cp kubeadm-otel:/opt/manifests deploy-otel.yaml
+kubectl apply --kustomize manifests
 podman stop kubeadm-otel
-kubectl create ns otel
-kubectl apply -f deploy-otel.yaml -n otel
+# (if desired) rm -rf manifests
 ```
 
 * Configure `otel-agent-conf configmap` exporter data
