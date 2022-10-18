@@ -1,10 +1,6 @@
-### Kubeadm setup Centos8
-
-*TODO: Add information about the steps below*
+### Kubeadm setup Fedora
 
 ## Dependencies
-
-*[This upcloud.com tutorial has descriptions of steps below](https://upcloud.com/community/tutorials/install-kubernetes-cluster-centos-8/)*
 
 ```shell
 sudo su

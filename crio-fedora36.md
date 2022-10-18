@@ -4,7 +4,7 @@
 
 *See [CRI-O repository tutorial](https://github.com/cri-o/cri-o/blob/master/tutorial.md) for details* 
 
-### Install CRI-O >= 1.23
+### Install CRI-O 1.25
 
 ```shell
 export VERSION=1.25 #update as necessary
@@ -29,7 +29,8 @@ EOF
 
 ```shell
 systemctl daemon-reload
-systemctl enable crio --now
+systemctl start crio # or systemctl enable crio --now
+systemctl status crio # should be running
 exit
 ```
 **Your system should be running CRI-O, return to [README](https://github.com/sallyom/otel-kubeadm/blob/main/README.md#configure-for-kubeadm) to configure kubeadm**

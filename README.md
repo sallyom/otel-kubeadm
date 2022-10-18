@@ -20,9 +20,33 @@ Fedora 36
 * [Configure system to run Kubeadm](https://github.com/sallyom/otel-kubeadm/blob/main/kubeadm-setup.md)
 
 
-## Launch Kubeadm Cluster
+## Launch Kubeadm Cluster and specify CRI-O as the runtime
 
-#### APIServer, Etcd, and CRI-O will export OTLP Traces
+### APIServer, Etcd, and CRI-O will export OTLP Traces
+
+#### kubeadm-init needs to run as admin user
+
+*TODO: configure kubeadm non-root*
+
+```shell
+sudo kubeadm init --cri-socket=unix:///var/run/crio/crio.sock
+```
+
+Upon successful launch, copy the admin config to $HOME
+
+```shell
+mkdir $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+chown $(id -u):$(id -g) $HOME/.kube/config
+```
+
+Make control-plane node schedulable
+
+```shell
+kubectl taint nodes --all node-role.kubernetes.io/control-plane-
+```
+
+#### Create tracing configuration file for kube-apiserver
 
 Trace configuration file will be volume mounted in APIserver pod
 
@@ -38,46 +62,39 @@ EOF
 
 #### Launch build-container with embedded artifacts from this repository
 
+Copy the manifests directory from this repository to local /tmp directory
+
 ```shell
-podman run --rm -d --name kubeadm-otel quay.io/sallyom/otel-ex:kubeadm sleep 1000
+podman run --rm -d --name kubeadm-files quay.io/sallyom/otel-ex:kubeadm sleep 1000
+podman cp kubeadm-files:/manifests /tmp
 ```
 
-## Copy necessary files from build container
+#### Replace control-plane manifests with those from build container
+
 ```shell
-podman cp kubeadm-otel:/opt/kubeadm-config.yaml .
-podman cp kubeadm-otel:/opt/kubelet-trace-config.yaml .
-sudo cp kubelet-trace-config.yaml /var/lib/kubelet/config.yaml
-podman stop kubeadm-otel
-
-# kubeadm-init needs to run as admin user
-# TODO: configure kubeadm non-root
-
-sudo kubeadm init --config kubeadm-config.yaml
+sudo su
+cp /tmp/manifests/etcd.yaml /etc/kubernetes/manifests/.
+cp /tmp/manifests/kube-apiserver.yaml /etc/kubernetes/manifests/.
+cp /tmp/manifests/kubelet-config.yaml /var/lib/kubelet/config.yaml
+systemctl restart kubelet
+exit
+podman stop kubeadm-files
 ```
 
-Upon successful launch copy the admin config to $HOME
+#### Wait for control-plane pods to return
+
+Use these commands to monitor cluster health
 
 ```shell
-mkdir $HOME/.kube
-sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-chown $(id -u):$(id -g) $HOME/.kube/config
-```
-
-Make control-plane node schedulable
-
-```shell
-kubectl taint nodes --all node-role.kubernetes.io/control-plane-
+sudo systemctl status kubelet # should be running
+sudo crictl ps -a # should see etcd, kube-apiserver pods deletion, creation
+oc get pods -A # no pending pods
 ```
 
 ## Deploy OpenTelemetry Collector & Jaeger 
 
 ```shell
-mkdir manifests
-podman run --rm -d -v manifests:/opt/manifests:Z --name kubeadm-otel quay.io/sallyom/otel-ex:kubeadm
-podman cp kubeadm-otel:/opt/manifests deploy-otel.yaml
-kubectl apply --kustomize manifests
-podman stop kubeadm-otel
-# (if desired) rm -rf manifests
+kubectl apply --kustomize /tmp/manifests/otel-collector
 ```
 
 * Configure `otel-agent-conf configmap` exporter data
@@ -87,23 +104,21 @@ podman stop kubeadm-otel
 
 ## Deploy Jaeger All-in-One
 
-*https://www.jaegertracing.io/docs/1.36/operator/#installing-the-operator-on-kubernetes*
+*[https://www.jaegertracing.io/docs/1.38/operator/#installing-the-operator-on-kubernetes](https://www.jaegertracing.io/docs/1.38/operator/#installing-the-operator-on-kubernetes)*
 
 Jaeger operator requires [cert-manager](https://cert-manager.io/docs/installation/kubectl/#installing-with-regular-manifests) is running.
 
 ```shell
-kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.8.2/cert-manager.yaml
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.9.1/cert-manager.yaml
 ```
 
 #### Apply all components in Jaeger All-in-One according to Jaeger documentation.
 
-**Note:** Jaeger operator is available through [Operator Hub](https://operatorhub.io/)
-If running in OKD or OpenShift it's trivial to launch Jaeger Operator. The below resources are
-deployed with community operator.
+**Note:** Jaeger operator is also available through [Operator Hub](https://operatorhub.io/)
 
 ```shell
 kubectl create namespace observability
-kubectl apply -f https://github.com/jaegertracing/jaeger-operator/releases/download/v1.36.0/jaeger-operator.yaml -n observability
+kubectl apply -f https://github.com/jaegertracing/jaeger-operator/releases/download/v1.38.0/jaeger-operator.yaml -n observability
 ```
 
 #### Edit Jaeger operator deployment to watch all namespaces
@@ -182,5 +197,3 @@ APIServer, Etcd spans
 
 Kubelet, CRI-O traces
 ![Kubelet, CRI-O Traces](images/kubelet-cri-o-trace-overview.png)
-
-
